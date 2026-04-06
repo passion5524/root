@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>루트 탈출! 타임어택</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            touch-action: manipulation; 
+            overflow: hidden; /* 스크롤 방지 */
+        }
+        
+        /* 루트 기호 디자인: 기호와 바를 완벽하게 밀착 */
+        .root-container {
+            display: inline-flex;
+            align-items: center;
+            position: relative;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .root-v {
+            font-family: serif;
+            font-style: italic;
+            margin-right: -1px;
+            transform: translateY(0.02em);
+            display: inline-block;
+        }
+        .root-bar {
+            border-top: 0.08em solid currentColor;
+            padding-top: 0.12em;
+            margin-left: -1px;
+            display: inline-block;
+        }
+
+        /* 문제용 큰 루트 - 화면 크기에 맞춰 조정 */
+        .q-root { font-size: 3rem; }
+        @media (min-height: 700px) {
+            .q-root { font-size: 4rem; }
+        }
+        
+        /* 선택지용 작은 루트 */
+        .opt-root { font-size: 1.4rem; }
+
+        .progress-bar { transition: width 0.1s linear; }
+        .tap-effect:active { transform: scale(0.95); }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(5px); }
+        }
+        .shake { animation: shake 0.15s ease-in-out 0s 2; }
+        
+        .score-up { color: #22c55e; transform: scale(1.1); transition: 0.2s; }
+        .score-down { color: #ef4444; transform: scale(0.9); transition: 0.2s; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-2 sm:p-4">
+
+    <div id="app" class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 flex flex-col">
+        <!-- 메인 화면 -->
+        <div id="start-screen" class="p-8 text-center">
+            <div class="mb-6 inline-block p-4 bg-blue-100 rounded-full">
+                <div class="root-container text-blue-600 q-root">
+                    <span class="root-v">√</span><span class="root-bar px-2">x</span>
+                </div>
+            </div>
+            <h1 class="text-3xl font-bold text-slate-800 mb-2">루트 탈출 퀴즈</h1>
+            <p class="text-slate-500 mb-8 font-medium">맞히면 100점! 틀리면 40점 감점!<br>제한 시간: 50초</p>
+            <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect">
+                게임 시작
+            </button>
+        </div>
+
+        <!-- 게임 화면 -->
+        <div id="game-screen" class="hidden p-4 sm:p-6 flex flex-col h-full">
+            <div class="flex justify-between items-center mb-4">
+                <div class="text-lg font-bold text-slate-700">점수: <span id="score">0</span></div>
+                <div class="text-lg font-bold text-orange-600">시간: <span id="timer">50</span>s</div>
+            </div>
+            
+            <div class="w-full bg-slate-200 h-2 rounded-full mb-6 overflow-hidden">
+                <div id="progress" class="progress-bar h-full bg-orange-500" style="width: 100%"></div>
+            </div>
+
+            <div class="text-center mb-6 p-6 bg-slate-50 rounded-2xl border-2 border-slate-100 flex-grow flex flex-col justify-center">
+                <div class="text-slate-400 text-xs mb-2 font-medium uppercase tracking-wider">Simplify</div>
+                <div class="root-container font-bold text-slate-800 q-root">
+                    <span class="root-v">√</span><span class="root-bar px-3" id="question-val">0</span>
+                </div>
+            </div>
+
+            <!-- 가로 2칸 세로 2칸 그리드 배치 -->
+            <div id="options-grid" class="grid grid-cols-2 gap-3 mb-2">
+                <!-- 4지선다 버튼 -->
+            </div>
+        </div>
+
+        <!-- 결과 화면 -->
+        <div id="result-screen" class="hidden p-8 text-center">
+            <h2 class="text-2xl font-bold text-slate-800 mb-4" id="result-title">최종 결과</h2>
+            <div class="text-6xl font-black text-blue-600 mb-2" id="final-score">0</div>
+            <p class="text-slate-500 mb-6 font-medium text-lg">점 획득</p>
+            
+            <div id="feedback" class="mb-8 p-6 rounded-2xl text-base leading-relaxed"></div>
+
+            <button onclick="startGame()" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-slate-900 tap-effect">
+                다시 도전하기
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let score = 0;
+        let timeLeft = 50;
+        let timerInterval;
+        let currentAnswerKey = "";
+        let isProcessing = false;
+
+        const screens = {
+            start: document.getElementById('start-screen'),
+            game: document.getElementById('game-screen'),
+            result: document.getElementById('result-screen')
+        };
+
+        function showScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenName].classList.remove('hidden');
+        }
+
+        function updateScoreUI(type) {
+            const scoreEl = document.getElementById('score');
+            scoreEl.innerText = score;
+            const animationClass = type === 'up' ? 'score-up' : 'score-down';
+            scoreEl.classList.add(animationClass);
+            setTimeout(() => scoreEl.classList.remove(animationClass), 200);
+        }
+
+        function startGame() {
+            score = 0;
+            timeLeft = 50;
+            isProcessing = false;
+            document.getElementById('score').innerText = score;
+            document.getElementById('timer').innerText = timeLeft;
+            showScreen('game');
+            nextQuestion();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    endGame();
+                }
+                document.getElementById('timer').innerText = Math.max(0, Math.ceil(timeLeft));
+                document.getElementById('progress').style.width = (timeLeft / 50 * 100) + "%";
+            }, 100);
+        }
+
+        function getSimplifyResult(n) {
+            let outside = 1;
+            let inside = n;
+            for (let i = 2; i * i <= inside; i++) {
+                while (inside % (i * i) === 0) {
+                    outside *= i;
+                    inside /= (i * i);
+                }
+            }
+            return { outside, inside };
+        }
+
+        function renderRootHTML(outside, inside) {
+            let html = "";
+            if (outside > 1 || inside === 1) {
+                html += `<span>${outside}</span>`;
+            }
+            if (inside > 1) {
+                html += `<span class="root-container opt-root"><span class="root-v">√</span><span class="root-bar px-1">${inside}</span></span>`;
+            }
+            return html;
+        }
+
+        function getAnswerKey(outside, inside) {
+            return `${outside}_${inside}`;
+        }
+
+        function generateQuestion() {
+            let n;
+            let res;
+            
+            while (true) {
+                let maxRange = 50 + (Math.floor(score / 500) * 50);
+                if (maxRange > 600) maxRange = 600;
+                
+                n = Math.floor(Math.random() * (maxRange - 4)) + 4;
+                res = getSimplifyResult(n);
+                
+                if (res.outside > 1) break; 
+            }
+
+            const correctKey = getAnswerKey(res.outside, res.inside);
+            const correctHTML = renderRootHTML(res.outside, res.inside);
+            
+            let options = [{ key: correctKey, html: correctHTML }];
+            let optionKeys = new Set([correctKey]);
+
+            while (options.length < 4) {
+                let fakeN = Math.floor(Math.random() * (n + 50)) + 2;
+                let fRes = getSimplifyResult(fakeN);
+                
+                if (Math.random() > 0.5) {
+                    fRes.outside = Math.floor(Math.random() * 8) + 2;
+                    fRes.inside = Math.floor(Math.random() * 12) + 2;
+                }
+
+                let fKey = getAnswerKey(fRes.outside, fRes.inside);
+                if (!optionKeys.has(fKey)) {
+                    optionKeys.add(fKey);
+                    options.push({ key: fKey, html: renderRootHTML(fRes.outside, fRes.inside) });
+                }
+            }
+
+            return {
+                val: n,
+                answerKey: correctKey,
+                options: options.sort(() => Math.random() - 0.5)
+            };
+        }
+
+        function nextQuestion() {
+            isProcessing = false;
+            const q = generateQuestion();
+            currentAnswerKey = q.answerKey;
+            document.getElementById('question-val').innerText = q.val;
+            
+            const grid = document.getElementById('options-grid');
+            grid.innerHTML = '';
+            
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full py-4 px-2 bg-white border-2 border-slate-200 rounded-2xl flex justify-center items-center gap-1 hover:border-blue-400 hover:bg-blue-50 tap-effect transition-all h-20 text-xl font-bold text-slate-700";
+                btn.innerHTML = opt.html;
+                btn.onclick = () => checkAnswer(opt.key, btn);
+                grid.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(selectedKey, btn) {
+            if (isProcessing) return;
+
+            if (selectedKey === currentAnswerKey) {
+                isProcessing = true;
+                score += 100;
+                updateScoreUI('up');
+                btn.classList.replace('border-slate-200', 'border-green-500');
+                btn.classList.add('bg-green-50', 'text-green-700');
+                setTimeout(nextQuestion, 200);
+            } else {
+                score = Math.max(0, score - 40);
+                updateScoreUI('down');
+                btn.classList.replace('border-slate-200', 'border-red-500');
+                btn.classList.add('bg-red-50', 'text-red-700', 'shake');
+                setTimeout(() => {
+                    btn.classList.remove('shake');
+                }, 400);
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('final-score').innerText = score;
+            
+            let feedbackTitle = "최종 결과";
+            let comment = "";
+            let bgColor = "bg-slate-100";
+            let textColor = "text-slate-600";
+
+            if (score === 0) {
+                feedbackTitle = "실화인가요? 🤔";
+                comment = "루트가 당신을 거부하고 있습니다.<br>도망가지 말고 다시 도전하세요!";
+                bgColor = "bg-red-50";
+                textColor = "text-red-700";
+            } else if (score < 1000) {
+                feedbackTitle = "병아리 루트러 🐣";
+                comment = "이제 막 근호를 탈출하기 시작했군요!<br>조금만 더 하면 숫자들이 밖으로 튀어나올 거예요.";
+                bgColor = "bg-yellow-50";
+                textColor = "text-yellow-800";
+            } else if (score < 2500) {
+                feedbackTitle = "준수한 탈출러 😎";
+                comment = "계산 좀 하시는데요? 이 정도면 학교에서<br>루트 좀 꺼내본 솜씨군요. 굿잡!";
+                bgColor = "bg-green-50";
+                textColor = "text-green-700";
+            } else if (score < 4500) {
+                feedbackTitle = "빛의 속도! ⚡";
+                comment = "당신의 손은 눈보다 빠릅니다!<br>루트들이 당신 앞에서 벌벌 떨고 있어요.";
+                bgColor = "bg-blue-50";
+                textColor = "text-blue-700";
+            } else if (score < 6500) {
+                feedbackTitle = "루트 분쇄기 🌪️";
+                comment = "혹시 인간 계산기이신가요?<br>거의 모든 루트를 완벽하게 정복했습니다!";
+                bgColor = "bg-purple-50";
+                textColor = "text-purple-700";
+            } else {
+                feedbackTitle = "전설의 루트신 👑";
+                comment = "경배하라! 루트의 지배자가 나타났다!<br>당신은 이 구역의 진정한 '루트 마스터'입니다.";
+                bgColor = "bg-orange-100";
+                textColor = "text-orange-800";
+            }
+            
+            const fbEl = document.getElementById('feedback');
+            document.getElementById('result-title').innerText = feedbackTitle;
+            fbEl.innerHTML = comment;
+            fbEl.className = `mb-8 p-6 rounded-2xl text-base leading-relaxed font-bold ${bgColor} ${textColor}`;
+            
+            showScreen('result');
+        }
+    </script>
+</body>
+</html>
