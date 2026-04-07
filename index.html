@@ -55,7 +55,7 @@
         .shake { animation: shake 0.15s ease-in-out 0s 2; }
         
         .score-up { color: #22c55e; transform: scale(1.1); transition: 0.2s; }
-        .score-down { color: #ef4444; transform: scale(0.9); transition: 0.2s; }
+        .score-down { color: #ef4444; transform: scale(0.85); transition: 0.2s; font-weight: 900; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex items-center justify-center p-2 sm:p-4">
@@ -69,7 +69,7 @@
                 </div>
             </div>
             <h1 class="text-3xl font-bold text-slate-800 mb-2">루트 탈출 퀴즈</h1>
-            <p class="text-slate-500 mb-8 font-medium">맞히면 100점! 틀리면 40점 감점!<br>제한 시간: 50초</p>
+            <p class="text-slate-500 mb-8 font-medium">맞히면 100점! 틀리면 <span class="text-red-500 font-bold">100점 감점!</span><br>제한 시간: 50초</p>
             <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect">
                 게임 시작
             </button>
@@ -259,7 +259,7 @@
                 btn.classList.add('bg-green-50', 'text-green-700');
                 setTimeout(nextQuestion, 200);
             } else {
-                score = Math.max(0, score - 40);
+                score = Math.max(0, score - 100); // 감점 100점으로 변경
                 updateScoreUI('down');
                 btn.classList.replace('border-slate-200', 'border-red-500');
                 btn.classList.add('bg-red-50', 'text-red-700', 'shake');
@@ -280,32 +280,32 @@
 
             if (score === 0) {
                 feedbackTitle = "실화인가요? 🤔";
-                comment = "루트가 당신을 거부하고 있습니다.<br>도망가지 말고 다시 도전하세요!";
+                comment = "감점이 너무 컸나요? 하지만 진정한 고수는<br>실수를 하지 않는 법입니다. 다시 도전하세요!";
                 bgColor = "bg-red-50";
                 textColor = "text-red-700";
             } else if (score < 1000) {
                 feedbackTitle = "병아리 루트러 🐣";
-                comment = "이제 막 근호를 탈출하기 시작했군요!<br>조금만 더 하면 숫자들이 밖으로 튀어나올 거예요.";
+                comment = "이제 막 근호를 탈출하기 시작했군요!<br>감점이 무서워도 멈추지 마세요!";
                 bgColor = "bg-yellow-50";
                 textColor = "text-yellow-800";
             } else if (score < 2500) {
                 feedbackTitle = "준수한 탈출러 😎";
-                comment = "계산 좀 하시는데요? 이 정도면 학교에서<br>루트 좀 꺼내본 솜씨군요. 굿잡!";
+                comment = "계산 좀 하시는데요? 감점을 잘 피하셨군요.<br>이 정도면 루트 좀 꺼내본 솜씨입니다.";
                 bgColor = "bg-green-50";
                 textColor = "text-green-700";
             } else if (score < 4500) {
                 feedbackTitle = "빛의 속도! ⚡";
-                comment = "당신의 손은 눈보다 빠릅니다!<br>루트들이 당신 앞에서 벌벌 떨고 있어요.";
+                comment = "당신의 손은 눈보다 빠릅니다!<br>실수 한 번에 정답 한 개가 날아가니 조심하세요!";
                 bgColor = "bg-blue-50";
                 textColor = "text-blue-700";
             } else if (score < 6500) {
                 feedbackTitle = "루트 분쇄기 🌪️";
-                comment = "혹시 인간 계산기이신가요?<br>거의 모든 루트를 완벽하게 정복했습니다!";
+                comment = "감점 100점의 압박을 견뎌내다니 대단합니다!<br>거의 완벽한 계산 능력이네요.";
                 bgColor = "bg-purple-50";
                 textColor = "text-purple-700";
             } else {
                 feedbackTitle = "전설의 루트신 👑";
-                comment = "경배하라! 루트의 지배자가 나타났다!<br>당신은 이 구역의 진정한 '루트 마스터'입니다.";
+                comment = "경배하라! 단 한 점의 실수도 용납하지 않는<br>당신이야말로 진정한 루트 마스터입니다.";
                 bgColor = "bg-orange-100";
                 textColor = "text-orange-800";
             }
