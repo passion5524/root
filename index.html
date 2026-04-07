@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>루트 탈출! 타임어택</title>
+    <title>루트 탈출! 타임어택 (전역 랭킹)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap');
         body { 
             font-family: 'Noto Sans KR', sans-serif; 
             touch-action: manipulation; 
-            overflow: hidden; /* 스크롤 방지 */
+            overflow: hidden;
         }
         
-        /* 루트 기호 디자인: 기호와 바를 완벽하게 밀착 */
         .root-container {
             display: inline-flex;
             align-items: center;
@@ -35,13 +34,11 @@
             display: inline-block;
         }
 
-        /* 문제용 큰 루트 - 화면 크기에 맞춰 조정 */
         .q-root { font-size: 3rem; }
         @media (min-height: 700px) {
             .q-root { font-size: 4rem; }
         }
         
-        /* 선택지용 작은 루트 */
         .opt-root { font-size: 1.4rem; }
 
         .progress-bar { transition: width 0.1s linear; }
@@ -56,11 +53,30 @@
         
         .score-up { color: #22c55e; transform: scale(1.1); transition: 0.2s; }
         .score-down { color: #ef4444; transform: scale(0.85); transition: 0.2s; font-weight: 900; }
+
+        .ranking-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen flex items-center justify-center p-2 sm:p-4">
 
     <div id="app" class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 flex flex-col">
+        
         <!-- 메인 화면 -->
         <div id="start-screen" class="p-8 text-center">
             <div class="mb-6 inline-block p-4 bg-blue-100 rounded-full">
@@ -69,9 +85,13 @@
                 </div>
             </div>
             <h1 class="text-3xl font-bold text-slate-800 mb-2">루트 탈출 퀴즈</h1>
-            <p class="text-slate-500 mb-8 font-medium">맞히면 100점! 틀리면 <span class="text-red-500 font-bold">100점 감점!</span><br>제한 시간: 50초</p>
-            <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect">
+            <p class="text-slate-500 mb-6 font-medium">맞히면 100점! 틀리면 <span class="text-red-500 font-bold">100점 감점!</span></p>
+            
+            <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect mb-4">
                 게임 시작
+            </button>
+            <button onclick="showRankingBoard()" class="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 tap-effect">
+                글로벌 랭킹 보기
             </button>
         </div>
 
@@ -93,53 +113,96 @@
                 </div>
             </div>
 
-            <!-- 가로 2칸 세로 2칸 그리드 배치 -->
-            <div id="options-grid" class="grid grid-cols-2 gap-3 mb-2">
-                <!-- 4지선다 버튼 -->
-            </div>
+            <div id="options-grid" class="grid grid-cols-2 gap-3 mb-2"></div>
         </div>
 
-        <!-- 결과 화면 -->
+        <!-- 결과 및 이름 입력 화면 -->
         <div id="result-screen" class="hidden p-8 text-center">
-            <h2 class="text-2xl font-bold text-slate-800 mb-4" id="result-title">최종 결과</h2>
+            <h2 class="text-2xl font-bold text-slate-800 mb-2" id="result-title">최종 결과</h2>
             <div class="text-6xl font-black text-blue-600 mb-2" id="final-score">0</div>
             <p class="text-slate-500 mb-6 font-medium text-lg">점 획득</p>
             
-            <div id="feedback" class="mb-8 p-6 rounded-2xl text-base leading-relaxed"></div>
+            <div id="feedback" class="mb-6 p-4 rounded-xl text-sm leading-relaxed font-bold bg-slate-50"></div>
 
-            <button onclick="startGame()" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-slate-900 tap-effect">
-                다시 도전하기
+            <div id="name-input-area" class="mb-6">
+                <input type="text" id="user-name" maxlength="8" placeholder="닉네임 입력 (8자)" 
+                       class="w-full p-4 border-2 border-slate-200 rounded-2xl text-center text-lg focus:border-blue-500 outline-none mb-3">
+                <button id="save-btn" onclick="saveScoreToCloud()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect flex justify-center items-center gap-2">
+                    <span>랭킹 등록하기</span>
+                </button>
+            </div>
+
+            <button onclick="location.reload()" class="text-slate-400 font-medium hover:underline">메인으로 가기</button>
+        </div>
+
+        <!-- 랭킹 보드 화면 -->
+        <div id="ranking-screen" class="hidden p-8 flex flex-col h-full">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">전세계 루트신 🏆</h2>
+            <div id="ranking-container" class="ranking-list flex-grow mb-6 space-y-2">
+                <div class="flex justify-center py-10"><div class="spinner"></div></div>
+            </div>
+            <button onclick="showScreen('start')" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-slate-900 tap-effect">
+                뒤로 가기
             </button>
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'root-time-attack';
+
+        let user = null;
         let score = 0;
         let timeLeft = 50;
         let timerInterval;
         let currentAnswerKey = "";
         let isProcessing = false;
 
+        // Auth initialization (RULE 3)
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (e) {
+                console.error("Auth error", e);
+            }
+        };
+        initAuth();
+        onAuthStateChanged(auth, (u) => { user = u; });
+
         const screens = {
             start: document.getElementById('start-screen'),
             game: document.getElementById('game-screen'),
-            result: document.getElementById('result-screen')
+            result: document.getElementById('result-screen'),
+            ranking: document.getElementById('ranking-screen')
         };
 
-        function showScreen(screenName) {
+        window.showScreen = (screenName) => {
             Object.values(screens).forEach(s => s.classList.add('hidden'));
             screens[screenName].classList.remove('hidden');
-        }
+        };
 
-        function updateScoreUI(type) {
+        const updateScoreUI = (type) => {
             const scoreEl = document.getElementById('score');
             scoreEl.innerText = score;
             const animationClass = type === 'up' ? 'score-up' : 'score-down';
             scoreEl.classList.add(animationClass);
             setTimeout(() => scoreEl.classList.remove(animationClass), 200);
-        }
+        };
 
-        function startGame() {
+        window.startGame = () => {
             score = 0;
             timeLeft = 50;
             isProcessing = false;
@@ -158,165 +221,169 @@
                 document.getElementById('timer').innerText = Math.max(0, Math.ceil(timeLeft));
                 document.getElementById('progress').style.width = (timeLeft / 50 * 100) + "%";
             }, 100);
-        }
+        };
 
-        function getSimplifyResult(n) {
-            let outside = 1;
-            let inside = n;
+        const getSimplifyResult = (n) => {
+            let outside = 1, inside = n;
             for (let i = 2; i * i <= inside; i++) {
-                while (inside % (i * i) === 0) {
-                    outside *= i;
-                    inside /= (i * i);
-                }
+                while (inside % (i * i) === 0) { outside *= i; inside /= (i * i); }
             }
             return { outside, inside };
-        }
+        };
 
-        function renderRootHTML(outside, inside) {
+        const renderRootHTML = (outside, inside) => {
             let html = "";
-            if (outside > 1 || inside === 1) {
-                html += `<span>${outside}</span>`;
-            }
-            if (inside > 1) {
-                html += `<span class="root-container opt-root"><span class="root-v">√</span><span class="root-bar px-1">${inside}</span></span>`;
-            }
+            if (outside > 1 || inside === 1) html += `<span>${outside}</span>`;
+            if (inside > 1) html += `<span class="root-container opt-root"><span class="root-v">√</span><span class="root-bar px-1">${inside}</span></span>`;
             return html;
-        }
+        };
 
-        function getAnswerKey(outside, inside) {
-            return `${outside}_${inside}`;
-        }
-
-        function generateQuestion() {
-            let n;
-            let res;
-            
+        const generateQuestion = () => {
+            let n, res;
             while (true) {
                 let maxRange = 50 + (Math.floor(score / 500) * 50);
                 if (maxRange > 600) maxRange = 600;
-                
                 n = Math.floor(Math.random() * (maxRange - 4)) + 4;
                 res = getSimplifyResult(n);
-                
                 if (res.outside > 1) break; 
             }
-
-            const correctKey = getAnswerKey(res.outside, res.inside);
-            const correctHTML = renderRootHTML(res.outside, res.inside);
-            
-            let options = [{ key: correctKey, html: correctHTML }];
+            const correctKey = `${res.outside}_${res.inside}`;
+            let options = [{ key: correctKey, html: renderRootHTML(res.outside, res.inside) }];
             let optionKeys = new Set([correctKey]);
-
             while (options.length < 4) {
                 let fakeN = Math.floor(Math.random() * (n + 50)) + 2;
                 let fRes = getSimplifyResult(fakeN);
-                
-                if (Math.random() > 0.5) {
-                    fRes.outside = Math.floor(Math.random() * 8) + 2;
-                    fRes.inside = Math.floor(Math.random() * 12) + 2;
-                }
-
-                let fKey = getAnswerKey(fRes.outside, fRes.inside);
+                if (Math.random() > 0.5) { fRes.outside = Math.floor(Math.random() * 8) + 2; fRes.inside = Math.floor(Math.random() * 12) + 2; }
+                let fKey = `${fRes.outside}_${fRes.inside}`;
                 if (!optionKeys.has(fKey)) {
                     optionKeys.add(fKey);
                     options.push({ key: fKey, html: renderRootHTML(fRes.outside, fRes.inside) });
                 }
             }
+            return { val: n, answerKey: correctKey, options: options.sort(() => Math.random() - 0.5) };
+        };
 
-            return {
-                val: n,
-                answerKey: correctKey,
-                options: options.sort(() => Math.random() - 0.5)
-            };
-        }
-
-        function nextQuestion() {
+        const nextQuestion = () => {
             isProcessing = false;
             const q = generateQuestion();
             currentAnswerKey = q.answerKey;
             document.getElementById('question-val').innerText = q.val;
-            
             const grid = document.getElementById('options-grid');
             grid.innerHTML = '';
-            
             q.options.forEach(opt => {
                 const btn = document.createElement('button');
                 btn.className = "w-full py-4 px-2 bg-white border-2 border-slate-200 rounded-2xl flex justify-center items-center gap-1 hover:border-blue-400 hover:bg-blue-50 tap-effect transition-all h-20 text-xl font-bold text-slate-700";
                 btn.innerHTML = opt.html;
-                btn.onclick = () => checkAnswer(opt.key, btn);
+                btn.onclick = () => {
+                    if (isProcessing) return;
+                    if (opt.key === currentAnswerKey) {
+                        isProcessing = true;
+                        score += 100;
+                        updateScoreUI('up');
+                        btn.classList.replace('border-slate-200', 'border-green-500');
+                        btn.classList.add('bg-green-50', 'text-green-700');
+                        setTimeout(nextQuestion, 200);
+                    } else {
+                        score = Math.max(0, score - 100);
+                        updateScoreUI('down');
+                        btn.classList.replace('border-slate-200', 'border-red-500');
+                        btn.classList.add('bg-red-50', 'text-red-700', 'shake');
+                        setTimeout(() => btn.classList.remove('shake'), 400);
+                    }
+                };
                 grid.appendChild(btn);
             });
-        }
+        };
 
-        function checkAnswer(selectedKey, btn) {
-            if (isProcessing) return;
-
-            if (selectedKey === currentAnswerKey) {
-                isProcessing = true;
-                score += 100;
-                updateScoreUI('up');
-                btn.classList.replace('border-slate-200', 'border-green-500');
-                btn.classList.add('bg-green-50', 'text-green-700');
-                setTimeout(nextQuestion, 200);
-            } else {
-                score = Math.max(0, score - 100); // 감점 100점으로 변경
-                updateScoreUI('down');
-                btn.classList.replace('border-slate-200', 'border-red-500');
-                btn.classList.add('bg-red-50', 'text-red-700', 'shake');
-                setTimeout(() => {
-                    btn.classList.remove('shake');
-                }, 400);
-            }
-        }
-
-        function endGame() {
+        const endGame = () => {
             clearInterval(timerInterval);
             document.getElementById('final-score').innerText = score;
-            
             let feedbackTitle = "최종 결과";
             let comment = "";
-            let bgColor = "bg-slate-100";
-            let textColor = "text-slate-600";
+            let bgColor = "text-slate-600";
 
-            if (score === 0) {
-                feedbackTitle = "실화인가요? 🤔";
-                comment = "감점이 너무 컸나요? 하지만 진정한 고수는<br>실수를 하지 않는 법입니다. 다시 도전하세요!";
-                bgColor = "bg-red-50";
-                textColor = "text-red-700";
-            } else if (score < 1000) {
-                feedbackTitle = "병아리 루트러 🐣";
-                comment = "이제 막 근호를 탈출하기 시작했군요!<br>감점이 무서워도 멈추지 마세요!";
-                bgColor = "bg-yellow-50";
-                textColor = "text-yellow-800";
-            } else if (score < 2500) {
-                feedbackTitle = "준수한 탈출러 😎";
-                comment = "계산 좀 하시는데요? 감점을 잘 피하셨군요.<br>이 정도면 루트 좀 꺼내본 솜씨입니다.";
-                bgColor = "bg-green-50";
-                textColor = "text-green-700";
-            } else if (score < 4500) {
-                feedbackTitle = "빛의 속도! ⚡";
-                comment = "당신의 손은 눈보다 빠릅니다!<br>실수 한 번에 정답 한 개가 날아가니 조심하세요!";
-                bgColor = "bg-blue-50";
-                textColor = "text-blue-700";
-            } else if (score < 6500) {
-                feedbackTitle = "루트 분쇄기 🌪️";
-                comment = "감점 100점의 압박을 견뎌내다니 대단합니다!<br>거의 완벽한 계산 능력이네요.";
-                bgColor = "bg-purple-50";
-                textColor = "text-purple-700";
-            } else {
-                feedbackTitle = "전설의 루트신 👑";
-                comment = "경배하라! 단 한 점의 실수도 용납하지 않는<br>당신이야말로 진정한 루트 마스터입니다.";
-                bgColor = "bg-orange-100";
-                textColor = "text-orange-800";
-            }
+            if (score === 0) { feedbackTitle = "실화인가요? 🤔"; comment = "도망가지 말고 다시 도전하세요!"; bgColor = "text-red-700"; }
+            else if (score < 1000) { feedbackTitle = "병아리 루트러 🐣"; comment = "이제 막 근호를 탈출하기 시작했군요!"; bgColor = "text-yellow-800"; }
+            else if (score < 3000) { feedbackTitle = "준수한 탈출러 😎"; comment = "계산 좀 하시는데요? 굿잡!"; bgColor = "text-green-700"; }
+            else { feedbackTitle = "전설의 루트신 👑"; comment = "경배하라! 당신은 이 구역의 루트 마스터입니다."; bgColor = "text-blue-700"; }
             
             const fbEl = document.getElementById('feedback');
             document.getElementById('result-title').innerText = feedbackTitle;
             fbEl.innerHTML = comment;
-            fbEl.className = `mb-8 p-6 rounded-2xl text-base leading-relaxed font-bold ${bgColor} ${textColor}`;
-            
+            fbEl.className = `mb-6 p-4 rounded-xl text-sm leading-relaxed font-bold bg-slate-50 ${bgColor}`;
             showScreen('result');
-        }
+        };
+
+        // Cloud Storage Logic
+        window.saveScoreToCloud = async () => {
+            if (!user) {
+                alert("인증 중입니다. 잠시만 기다려주세요.");
+                return;
+            }
+
+            const nameInput = document.getElementById('user-name');
+            const name = nameInput.value.trim() || "무명루트러";
+            const saveBtn = document.getElementById('save-btn');
+            
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `<div class="spinner"></div>`;
+
+            try {
+                // Public collection (RULE 1)
+                const rankingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
+                await addDoc(rankingsCol, {
+                    name: name,
+                    score: score,
+                    timestamp: Date.now(),
+                    userId: user.uid
+                });
+                showRankingBoard();
+            } catch (e) {
+                console.error("Save error", e);
+                saveBtn.disabled = false;
+                saveBtn.innerText = "다시 시도하기";
+            }
+        };
+
+        window.showRankingBoard = async () => {
+            showScreen('ranking');
+            const container = document.getElementById('ranking-container');
+            container.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>';
+
+            try {
+                const rankingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
+                const snapshot = await getDocs(rankingsCol);
+                
+                let rankings = [];
+                snapshot.forEach(doc => rankings.push(doc.data()));
+
+                // Sort and filter in memory (RULE 2)
+                rankings.sort((a, b) => b.score - a.score);
+                rankings = rankings.slice(0, 30); // Top 30
+
+                if (rankings.length === 0) {
+                    container.innerHTML = '<div class="text-center text-slate-400 py-8">아직 등록된 랭킹이 없습니다.</div>';
+                } else {
+                    container.innerHTML = '';
+                    rankings.forEach((entry, index) => {
+                        const item = document.createElement('div');
+                        let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+                        item.className = `flex justify-between items-center p-3 rounded-xl ${index < 3 ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50'}`;
+                        item.innerHTML = `
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-slate-400 w-6">${medal}</span>
+                                <span class="font-bold text-slate-700">${entry.name}</span>
+                            </div>
+                            <div class="font-black text-blue-600">${entry.score.toLocaleString()}</div>
+                        `;
+                        container.appendChild(item);
+                    });
+                }
+            } catch (e) {
+                console.error("Load error", e);
+                container.innerHTML = '<div class="text-center text-red-400 py-8">랭킹을 불러오지 못했습니다.</div>';
+            }
+        };
     </script>
 </body>
 </html>
