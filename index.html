@@ -59,7 +59,6 @@
             overflow-y: auto;
         }
 
-        /* Loading Spinner */
         .spinner {
             border: 3px solid rgba(0, 0, 0, 0.1);
             width: 24px;
@@ -77,7 +76,7 @@
 
     <div id="app" class="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 flex flex-col">
         
-        <!-- 메인 화면 -->
+        <!-- Main Screen -->
         <div id="start-screen" class="p-8 text-center">
             <div class="mb-6 inline-block p-4 bg-blue-100 rounded-full">
                 <div class="root-container text-blue-600 q-root">
@@ -87,15 +86,15 @@
             <h1 class="text-3xl font-bold text-slate-800 mb-2">루트 탈출 퀴즈</h1>
             <p class="text-slate-500 mb-6 font-medium">맞히면 100점! 틀리면 <span class="text-red-500 font-bold">100점 감점!</span></p>
             
-            <button onclick="startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect mb-4">
+            <button onclick="window.startGame()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect mb-4">
                 게임 시작
             </button>
-            <button onclick="showRankingBoard()" class="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 tap-effect">
+            <button onclick="window.showRankingBoard()" class="w-full py-3 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 tap-effect">
                 글로벌 랭킹 보기
             </button>
         </div>
 
-        <!-- 게임 화면 -->
+        <!-- Game Screen -->
         <div id="game-screen" class="hidden p-4 sm:p-6 flex flex-col h-full">
             <div class="flex justify-between items-center mb-4">
                 <div class="text-lg font-bold text-slate-700">점수: <span id="score">0</span></div>
@@ -116,7 +115,7 @@
             <div id="options-grid" class="grid grid-cols-2 gap-3 mb-2"></div>
         </div>
 
-        <!-- 결과 및 이름 입력 화면 -->
+        <!-- Result Screen -->
         <div id="result-screen" class="hidden p-8 text-center">
             <h2 class="text-2xl font-bold text-slate-800 mb-2" id="result-title">최종 결과</h2>
             <div class="text-6xl font-black text-blue-600 mb-2" id="final-score">0</div>
@@ -127,7 +126,7 @@
             <div id="name-input-area" class="mb-6">
                 <input type="text" id="user-name" maxlength="8" placeholder="닉네임 입력 (8자)" 
                        class="w-full p-4 border-2 border-slate-200 rounded-2xl text-center text-lg focus:border-blue-500 outline-none mb-3">
-                <button id="save-btn" onclick="saveScoreToCloud()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect flex justify-center items-center gap-2">
+                <button id="save-btn" onclick="window.saveScoreToCloud()" class="w-full py-4 bg-blue-600 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-blue-700 tap-effect flex justify-center items-center gap-2">
                     <span>랭킹 등록하기</span>
                 </button>
             </div>
@@ -135,17 +134,17 @@
             <button onclick="location.reload()" class="text-slate-400 font-medium hover:underline">메인으로 가기</button>
         </div>
 
-        <!-- 랭킹 보드 화면 -->
+        <!-- Ranking Board Screen -->
         <div id="ranking-screen" class="hidden p-8 flex flex-col h-full">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-slate-800">전세계 루트신 🏆</h2>
-                <button onclick="toggleAdminMode()" id="admin-toggle-btn" class="text-[10px] text-slate-300 hover:text-slate-500">ADMIN</button>
+                <button onclick="window.toggleAdminMode()" id="admin-toggle-btn" class="text-[10px] text-slate-300 hover:text-slate-500">ADMIN</button>
             </div>
             
             <div id="ranking-container" class="ranking-list flex-grow mb-6 space-y-2">
                 <div class="flex justify-center py-10"><div class="spinner"></div></div>
             </div>
-            <button onclick="showScreen('start')" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-slate-900 tap-effect">
+            <button onclick="window.showScreen('start')" class="w-full py-4 bg-slate-800 text-white rounded-2xl text-xl font-bold shadow-lg hover:bg-slate-900 tap-effect">
                 뒤로 가기
             </button>
         </div>
@@ -155,14 +154,14 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Firebase Configuration
+        // Firebase Configuration (system injected)
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'root-time-attack';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'root-time-attack-default';
 
         let user = null;
         let score = 0;
@@ -172,9 +171,9 @@
         let isProcessing = false;
         let isAdmin = false;
 
-        // 비속어 리스트 (기본적인 예시)
-        const badWords = ["시발", "씨발", "병신", "개새", "존나", "지랄", "fuck", "shit"];
+        const badWords = ["시발", "씨발", "병신", "개새", "존나", "지랄", "fuck", "shit", "뻐큐"];
 
+        // RULE 3: Auth Before Queries
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -183,11 +182,13 @@
                     await signInAnonymously(auth);
                 }
             } catch (e) {
-                console.error("Auth error", e);
+                console.error("Auth initialization failed", e);
             }
         };
-        initAuth();
-        onAuthStateChanged(auth, (u) => { user = u; });
+
+        onAuthStateChanged(auth, (u) => { 
+            user = u;
+        });
 
         const screens = {
             start: document.getElementById('start-screen'),
@@ -196,13 +197,15 @@
             ranking: document.getElementById('ranking-screen')
         };
 
+        // Window binding for HTML access
         window.showScreen = (screenName) => {
             Object.values(screens).forEach(s => s.classList.add('hidden'));
-            screens[screenName].classList.remove('hidden');
+            if (screens[screenName]) screens[screenName].classList.remove('hidden');
         };
 
         const updateScoreUI = (type) => {
             const scoreEl = document.getElementById('score');
+            if (!scoreEl) return;
             scoreEl.innerText = score;
             const animationClass = type === 'up' ? 'score-up' : 'score-down';
             scoreEl.classList.add(animationClass);
@@ -215,7 +218,7 @@
             isProcessing = false;
             document.getElementById('score').innerText = score;
             document.getElementById('timer').innerText = timeLeft;
-            showScreen('game');
+            window.showScreen('game');
             nextQuestion();
             
             if (timerInterval) clearInterval(timerInterval);
@@ -225,8 +228,10 @@
                     timeLeft = 0;
                     endGame();
                 }
-                document.getElementById('timer').innerText = Math.max(0, Math.ceil(timeLeft));
-                document.getElementById('progress').style.width = (timeLeft / 50 * 100) + "%";
+                const timerEl = document.getElementById('timer');
+                const progressEl = document.getElementById('progress');
+                if (timerEl) timerEl.innerText = Math.max(0, Math.ceil(timeLeft));
+                if (progressEl) progressEl.style.width = (timeLeft / 50 * 100) + "%";
             }, 100);
         };
 
@@ -274,8 +279,10 @@
             isProcessing = false;
             const q = generateQuestion();
             currentAnswerKey = q.answerKey;
-            document.getElementById('question-val').innerText = q.val;
+            const qValEl = document.getElementById('question-val');
+            if (qValEl) qValEl.innerText = q.val;
             const grid = document.getElementById('options-grid');
+            if (!grid) return;
             grid.innerHTML = '';
             q.options.forEach(opt => {
                 const btn = document.createElement('button');
@@ -304,7 +311,9 @@
 
         const endGame = () => {
             clearInterval(timerInterval);
-            document.getElementById('final-score').innerText = score;
+            const finalScoreEl = document.getElementById('final-score');
+            if (finalScoreEl) finalScoreEl.innerText = score;
+            
             let feedbackTitle = "최종 결과";
             let comment = "";
             let bgColor = "text-slate-600";
@@ -312,43 +321,47 @@
             if (score === 0) { feedbackTitle = "실화인가요? 🤔"; comment = "도망가지 말고 다시 도전하세요!"; bgColor = "text-red-700"; }
             else if (score < 1000) { feedbackTitle = "병아리 루트러 🐣"; comment = "이제 막 근호를 탈출하기 시작했군요!"; bgColor = "text-yellow-800"; }
             else if (score < 3000) { feedbackTitle = "준수한 탈출러 😎"; comment = "계산 좀 하시는데요? 굿잡!"; bgColor = "text-green-700"; }
-            else { feedbackTitle = "전설의 루트신 👑"; comment = "경배하라! 당신은 이 구역의 루트 마스터입니다."; bgColor = "text-blue-700"; }
+            else { feedbackTitle = "전설의 루트신 👑"; comment = "당신은 이 구역의 루트 마스터입니다."; bgColor = "text-blue-700"; }
             
             const fbEl = document.getElementById('feedback');
-            document.getElementById('result-title').innerText = feedbackTitle;
-            fbEl.innerHTML = comment;
-            fbEl.className = `mb-6 p-4 rounded-xl text-sm leading-relaxed font-bold bg-slate-50 ${bgColor}`;
-            showScreen('result');
+            const resTitleEl = document.getElementById('result-title');
+            if (resTitleEl) resTitleEl.innerText = feedbackTitle;
+            if (fbEl) {
+                fbEl.innerHTML = comment;
+                fbEl.className = `mb-6 p-4 rounded-xl text-sm leading-relaxed font-bold bg-slate-50 ${bgColor}`;
+            }
+            window.showScreen('result');
         };
 
-        // Cloud Storage Logic
         window.saveScoreToCloud = async () => {
             if (!user) {
-                alert("인증 중입니다. 잠시만 기다려주세요.");
-                return;
+                await initAuth();
+                if (!user) return;
             }
 
             const nameInput = document.getElementById('user-name');
-            let name = nameInput.value.trim();
+            let name = nameInput ? nameInput.value.trim() : "무명";
 
             if (!name) {
-                alert("닉네임을 입력해주세요!");
                 return;
             }
 
-            // 비속어 필터링
             for (let word of badWords) {
                 if (name.includes(word)) {
-                    alert("닉네임에 부적절한 단어가 포함되어 있습니다.");
+                    nameInput.value = "";
+                    nameInput.placeholder = "부적절한 단어 포함!";
                     return;
                 }
             }
 
             const saveBtn = document.getElementById('save-btn');
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = `<div class="spinner"></div>`;
+            if (saveBtn) {
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = `<div class="spinner"></div>`;
+            }
 
             try {
+                // RULE 1: Specific path
                 const rankingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
                 await addDoc(rankingsCol, {
                     name: name,
@@ -356,20 +369,25 @@
                     timestamp: Date.now(),
                     userId: user.uid
                 });
-                showRankingBoard();
+                window.showRankingBoard();
             } catch (e) {
                 console.error("Save error", e);
-                saveBtn.disabled = false;
-                saveBtn.innerText = "다시 시도하기";
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = "다시 시도하기";
+                }
             }
         };
 
         window.showRankingBoard = async () => {
-            showScreen('ranking');
+            window.showScreen('ranking');
             const container = document.getElementById('ranking-container');
+            if (!container) return;
             container.innerHTML = '<div class="flex justify-center py-10"><div class="spinner"></div></div>';
 
             try {
+                if (!user) await initAuth();
+                // RULE 1: Specific path
                 const rankingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
                 const snapshot = await getDocs(rankingsCol);
                 
@@ -378,6 +396,7 @@
                     rankings.push({ id: d.id, ...d.data() });
                 });
 
+                // RULE 2: No complex queries, filter in memory
                 rankings.sort((a, b) => b.score - a.score);
                 rankings = rankings.slice(0, 50);
 
@@ -390,8 +409,7 @@
                         let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
                         item.className = `flex justify-between items-center p-3 rounded-xl ${index < 3 ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50'}`;
                         
-                        // 관리자 삭제 버튼 (관리자 모드일 때만 표시 예정)
-                        const deleteBtn = isAdmin ? `<button onclick="deleteRanking('${entry.id}')" class="ml-2 text-xs text-red-400 hover:text-red-600 font-bold">[삭제]</button>` : "";
+                        const deleteBtn = isAdmin ? `<button onclick="window.deleteRanking('${entry.id}')" class="ml-2 text-[10px] text-red-400 hover:text-red-600 font-bold underline">삭제</button>` : "";
 
                         item.innerHTML = `
                             <div class="flex items-center gap-3">
@@ -410,36 +428,29 @@
         };
 
         window.toggleAdminMode = () => {
-            if (!isAdmin) {
-                const pw = prompt("관리자 비밀번호를 입력하세요.");
-                if (pw === "4924") {
-                    isAdmin = true;
-                    alert("관리자 모드가 활성화되었습니다.");
-                    showRankingBoard();
-                } else {
-                    alert("비밀번호가 틀렸습니다.");
-                }
+            const pw = prompt("관리자 비밀번호를 입력하세요.");
+            if (pw === "4924") {
+                isAdmin = !isAdmin;
+                window.showRankingBoard();
             } else {
                 isAdmin = false;
-                alert("관리자 모드가 해제되었습니다.");
-                showRankingBoard();
+                window.showRankingBoard();
             }
         };
 
         window.deleteRanking = async (docId) => {
             if (!isAdmin) return;
-            if (!confirm("이 항목을 삭제하시겠습니까?")) return;
-
             try {
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'rankings', docId);
                 await deleteDoc(docRef);
-                alert("삭제되었습니다.");
-                showRankingBoard();
+                window.showRankingBoard();
             } catch (e) {
                 console.error("Delete error", e);
-                alert("삭제에 실패했습니다.");
             }
         };
+
+        // Final Init
+        initAuth();
     </script>
 </body>
 </html>
