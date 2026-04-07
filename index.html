@@ -55,7 +55,7 @@
         .score-down { color: #ef4444; transform: scale(0.85); transition: 0.2s; font-weight: 900; }
 
         .ranking-list {
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
         }
 
@@ -137,7 +137,11 @@
 
         <!-- 랭킹 보드 화면 -->
         <div id="ranking-screen" class="hidden p-8 flex flex-col h-full">
-            <h2 class="text-2xl font-bold text-slate-800 mb-6 text-center">전세계 루트신 🏆</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">전세계 루트신 🏆</h2>
+                <button onclick="toggleAdminMode()" id="admin-toggle-btn" class="text-[10px] text-slate-300 hover:text-slate-500">ADMIN</button>
+            </div>
+            
             <div id="ranking-container" class="ranking-list flex-grow mb-6 space-y-2">
                 <div class="flex justify-center py-10"><div class="spinner"></div></div>
             </div>
@@ -151,7 +155,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, limit } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configuration
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -166,8 +170,11 @@
         let timerInterval;
         let currentAnswerKey = "";
         let isProcessing = false;
+        let isAdmin = false;
 
-        // Auth initialization (RULE 3)
+        // 비속어 리스트 (기본적인 예시)
+        const badWords = ["시발", "씨발", "병신", "개새", "존나", "지랄", "fuck", "shit"];
+
         const initAuth = async () => {
             try {
                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -242,7 +249,7 @@
             let n, res;
             while (true) {
                 let maxRange = 50 + (Math.floor(score / 500) * 50);
-                if (maxRange > 600) maxRange = 600;
+                if (maxRange > 1000) maxRange = 1000;
                 n = Math.floor(Math.random() * (maxRange - 4)) + 4;
                 res = getSimplifyResult(n);
                 if (res.outside > 1) break; 
@@ -322,14 +329,26 @@
             }
 
             const nameInput = document.getElementById('user-name');
-            const name = nameInput.value.trim() || "무명루트러";
+            let name = nameInput.value.trim();
+
+            if (!name) {
+                alert("닉네임을 입력해주세요!");
+                return;
+            }
+
+            // 비속어 필터링
+            for (let word of badWords) {
+                if (name.includes(word)) {
+                    alert("닉네임에 부적절한 단어가 포함되어 있습니다.");
+                    return;
+                }
+            }
+
             const saveBtn = document.getElementById('save-btn');
-            
             saveBtn.disabled = true;
             saveBtn.innerHTML = `<div class="spinner"></div>`;
 
             try {
-                // Public collection (RULE 1)
                 const rankingsCol = collection(db, 'artifacts', appId, 'public', 'data', 'rankings');
                 await addDoc(rankingsCol, {
                     name: name,
@@ -355,11 +374,12 @@
                 const snapshot = await getDocs(rankingsCol);
                 
                 let rankings = [];
-                snapshot.forEach(doc => rankings.push(doc.data()));
+                snapshot.forEach(d => {
+                    rankings.push({ id: d.id, ...d.data() });
+                });
 
-                // Sort and filter in memory (RULE 2)
                 rankings.sort((a, b) => b.score - a.score);
-                rankings = rankings.slice(0, 30); // Top 30
+                rankings = rankings.slice(0, 50);
 
                 if (rankings.length === 0) {
                     container.innerHTML = '<div class="text-center text-slate-400 py-8">아직 등록된 랭킹이 없습니다.</div>';
@@ -369,10 +389,14 @@
                         const item = document.createElement('div');
                         let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
                         item.className = `flex justify-between items-center p-3 rounded-xl ${index < 3 ? 'bg-blue-50 border border-blue-100' : 'bg-slate-50'}`;
+                        
+                        // 관리자 삭제 버튼 (관리자 모드일 때만 표시 예정)
+                        const deleteBtn = isAdmin ? `<button onclick="deleteRanking('${entry.id}')" class="ml-2 text-xs text-red-400 hover:text-red-600 font-bold">[삭제]</button>` : "";
+
                         item.innerHTML = `
                             <div class="flex items-center gap-3">
                                 <span class="font-bold text-slate-400 w-6">${medal}</span>
-                                <span class="font-bold text-slate-700">${entry.name}</span>
+                                <span class="font-bold text-slate-700">${entry.name} ${deleteBtn}</span>
                             </div>
                             <div class="font-black text-blue-600">${entry.score.toLocaleString()}</div>
                         `;
@@ -382,6 +406,38 @@
             } catch (e) {
                 console.error("Load error", e);
                 container.innerHTML = '<div class="text-center text-red-400 py-8">랭킹을 불러오지 못했습니다.</div>';
+            }
+        };
+
+        window.toggleAdminMode = () => {
+            if (!isAdmin) {
+                const pw = prompt("관리자 비밀번호를 입력하세요.");
+                if (pw === "4924") {
+                    isAdmin = true;
+                    alert("관리자 모드가 활성화되었습니다.");
+                    showRankingBoard();
+                } else {
+                    alert("비밀번호가 틀렸습니다.");
+                }
+            } else {
+                isAdmin = false;
+                alert("관리자 모드가 해제되었습니다.");
+                showRankingBoard();
+            }
+        };
+
+        window.deleteRanking = async (docId) => {
+            if (!isAdmin) return;
+            if (!confirm("이 항목을 삭제하시겠습니까?")) return;
+
+            try {
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'rankings', docId);
+                await deleteDoc(docRef);
+                alert("삭제되었습니다.");
+                showRankingBoard();
+            } catch (e) {
+                console.error("Delete error", e);
+                alert("삭제에 실패했습니다.");
             }
         };
     </script>
